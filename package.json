@@ -1,10 +1,10 @@
 {
-    "name": "create-trustless-agent",
-    "version": "1.0.5",
+    "name": "create-8004-agent",
+    "version": "1.0.65",
     "description": "CLI to scaffold ERC-8004 compliant AI agents with A2A, MCP, and x402 support",
     "type": "module",
     "bin": {
-        "create-trustless-agent": "dist/index.js"
+        "create-8004-agent": "dist/index.js"
     },
     "files": [
         "dist"

@@ -1,39 +1,39 @@
-import { hasFeature } from '../wizard.js';
+import { hasFeature } from "../wizard.js";
 export function generatePackageJson(answers) {
     const scripts = {
-        build: 'tsc',
-        register: 'tsx src/register.ts',
+        build: "tsc",
+        register: "tsx src/register.ts",
     };
     const dependencies = {
-        viem: '^2.21.0',
-        dotenv: '^16.3.1',
-        openai: '^4.68.0',
+        viem: "^2.21.0",
+        dotenv: "^16.3.1",
+        openai: "^4.68.0",
     };
     const devDependencies = {
-        '@types/node': '^20.10.0',
-        tsx: '^4.7.0',
-        typescript: '^5.3.0',
+        "@types/node": "^20.10.0",
+        tsx: "^4.7.0",
+        typescript: "^5.3.0",
     };
     // No extra dependency needed for IPFS - using fetch with Pinata API
-    if (hasFeature(answers, 'a2a')) {
-        scripts['start:a2a'] = 'tsx src/a2a-server.ts';
-        dependencies['express'] = '^4.18.2';
-        dependencies['uuid'] = '^9.0.0';
-        devDependencies['@types/express'] = '^4.17.21';
-        devDependencies['@types/uuid'] = '^9.0.7';
+    if (hasFeature(answers, "a2a")) {
+        scripts["start:a2a"] = "tsx src/a2a-server.ts";
+        dependencies["express"] = "^4.18.2";
+        dependencies["uuid"] = "^9.0.0";
+        devDependencies["@types/express"] = "^4.17.21";
+        devDependencies["@types/uuid"] = "^9.0.7";
     }
-    if (hasFeature(answers, 'mcp')) {
-        scripts['start:mcp'] = 'tsx src/mcp-server.ts';
-        dependencies['@modelcontextprotocol/sdk'] = '^1.0.0';
+    if (hasFeature(answers, "mcp")) {
+        scripts["start:mcp"] = "tsx src/mcp-server.ts";
+        dependencies["@modelcontextprotocol/sdk"] = "^1.0.0";
     }
-    if (hasFeature(answers, 'x402')) {
-        dependencies['x402-express'] = '^1.0.0';
+    if (hasFeature(answers, "x402")) {
+        dependencies["x402-express"] = "^1.0.0";
     }
     return JSON.stringify({
-        name: answers.agentName.toLowerCase().replace(/\s+/g, '-'),
-        version: '1.0.0',
+        name: answers.agentName.toLowerCase().replace(/\s+/g, "-"),
+        version: "1.0.0",
         description: answers.agentDescription,
-        type: 'module',
+        type: "module",
         scripts,
         dependencies,
         devDependencies,
@@ -41,20 +41,20 @@ export function generatePackageJson(answers) {
 }
 export function generateEnvExample(answers) {
     // If we generated a private key, use it directly
-    const privateKeyValue = answers.generatedPrivateKey || 'your_private_key_here';
+    const privateKeyValue = answers.generatedPrivateKey || "your_private_key_here";
     let env = `# Required for registration
 PRIVATE_KEY=${privateKeyValue}
 
 # OpenAI API key for LLM agent
 OPENAI_API_KEY=your_openai_api_key_here
 `;
-    if (answers.storageType === 'ipfs') {
+    if (answers.storageType === "ipfs") {
         env += `
 # Pinata for IPFS uploads
 PINATA_JWT=your_pinata_jwt_here
 `;
     }
-    if (hasFeature(answers, 'x402')) {
+    if (hasFeature(answers, "x402")) {
         env += `
 # x402 Payment Configuration (optional overrides)
 X402_PAYEE_ADDRESS=${answers.agentWallet}
@@ -64,28 +64,28 @@ X402_PRICE=$0.001
     return env;
 }
 export function generateRegistrationJson(answers, chain) {
-    const agentSlug = answers.agentName.toLowerCase().replace(/\s+/g, '-');
+    const agentSlug = answers.agentName.toLowerCase().replace(/\s+/g, "-");
     const endpoints = [];
-    if (hasFeature(answers, 'a2a')) {
+    if (hasFeature(answers, "a2a")) {
         endpoints.push({
-            name: 'A2A',
+            name: "A2A",
             endpoint: `https://${agentSlug}.example.com/.well-known/agent-card.json`,
-            version: '0.3.0',
+            version: "0.3.0",
         });
     }
-    if (hasFeature(answers, 'mcp')) {
+    if (hasFeature(answers, "mcp")) {
         endpoints.push({
-            name: 'MCP',
+            name: "MCP",
             endpoint: `https://${agentSlug}.example.com/mcp`,
-            version: '2025-06-18',
+            version: "2025-06-18",
         });
     }
     endpoints.push({
-        name: 'agentWallet',
+        name: "agentWallet",
         endpoint: `eip155:${chain.chainId}:${answers.agentWallet}`,
     });
     const registration = {
-        type: 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1',
+        type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
         name: answers.agentName,
         description: answers.agentDescription,
         image: answers.agentImage,
@@ -96,7 +96,7 @@ export function generateRegistrationJson(answers, chain) {
     return JSON.stringify(registration, null, 2);
 }
 export function generateRegisterScript(answers, chain) {
-    const ipfsUpload = answers.storageType === 'ipfs';
+    const ipfsUpload = answers.storageType === "ipfs";
     return `/**
  * ERC-8004 Agent Registration Script
  * 
@@ -104,19 +104,19 @@ export function generateRegisterScript(answers, chain) {
  * It performs the following steps:
  * 
  * 1. Reads your registration.json metadata
- * 2. ${ipfsUpload ? 'Uploads metadata to IPFS via Pinata' : 'Encodes metadata as a base64 data URI'}
+ * 2. ${ipfsUpload ? "Uploads metadata to IPFS via Pinata" : "Encodes metadata as a base64 data URI"}
  * 3. Calls the Identity Registry contract to mint your agent NFT
  * 4. Returns your agentId for future reference
  * 
  * Requirements:
- * - PRIVATE_KEY in .env (wallet with testnet ETH for gas)${ipfsUpload ? '\n * - PINATA_JWT in .env (for IPFS uploads)' : ''}
+ * - PRIVATE_KEY in .env (wallet with testnet ETH for gas)${ipfsUpload ? "\n * - PINATA_JWT in .env (for IPFS uploads)" : ""}
  * 
  * Run with: npm run register
  */
 
 import 'dotenv/config';
 import fs from 'fs/promises';
-import { createWalletClient, createPublicClient, http, parseAbi } from 'viem';
+import { createWalletClient, createPublicClient, http, parseAbi, decodeEventLog } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 // ============================================================================
@@ -175,7 +175,7 @@ async function uploadToIPFS(data: string, jwt: string): Promise<string> {
   return result.IpfsHash;
 }
 `
-        : ''}
+        : ""}
 // ============================================================================
 // Main Registration Flow
 // ============================================================================
@@ -192,7 +192,7 @@ async function main() {
   if (!pinataJwt) {
     throw new Error('PINATA_JWT not set in .env');
   }`
-        : ''}
+        : ""}
 
   // Step 2: Read registration.json (your agent's metadata)
   const registrationData = await fs.readFile('registration.json', 'utf-8');
@@ -246,30 +246,100 @@ async function main() {
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
 
   // Parse the Registered event to get agentId
+  // The Registered event signature hash
+  const REGISTERED_EVENT_SIG = '0xca52e62c367d81bb2e328eb795f7c7ba24afb478408a26c0e201d155c449bc4a';
+  
   const registeredLog = receipt.logs.find(
-    (log) => log.address.toLowerCase() === IDENTITY_REGISTRY.toLowerCase()
+    (log) => 
+      log.address.toLowerCase() === IDENTITY_REGISTRY.toLowerCase() &&
+      log.topics[0] === REGISTERED_EVENT_SIG
   );
+
+  let agentId: string | null = null;
+  if (registeredLog) {
+    try {
+      const decoded = decodeEventLog({
+        abi: IDENTITY_REGISTRY_ABI,
+        data: registeredLog.data,
+        topics: registeredLog.topics,
+      });
+      if (decoded.eventName === 'Registered' && decoded.args) {
+        agentId = (decoded.args as { agentId: bigint }).agentId.toString();
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not decode event log, agentId not extracted');
+    }
+  }
 
   // Step 7: Output results
   console.log('\\n✅ Agent registered successfully!');
   console.log('📋 Transaction:', \`${chain.explorer}/tx/\${hash}\`);
   console.log('🔗 Registry:', IDENTITY_REGISTRY);
   console.log('📄 Token URI:', tokenURI);
+  if (agentId) {
+    console.log('🆔 Agent ID:', agentId);${chain.scanPath
+        ? `
+    console.log('');
+    console.log('🌐 View your agent on 8004scan:');
+    console.log(\`   https://www.8004scan.io/${chain.scanPath}/agent/\${agentId}\`);`
+        : ""}
+  }
 
   // Update registration.json with the registry reference
-  // Note: You'll need to manually get the agentId from the transaction logs
   registration.registrations = [{
-    agentId: 'UPDATE_WITH_AGENT_ID',
+    agentId: agentId ? parseInt(agentId, 10) : 'UNKNOWN',
     agentRegistry: \`eip155:${chain.chainId}:\${IDENTITY_REGISTRY}\`,
   }];
   await fs.writeFile('registration.json', JSON.stringify(registration, null, 2));
-  console.log('\\n💡 Update registration.json with your agentId from the transaction logs');
+  
+  if (agentId) {
+    console.log('\\n✅ registration.json updated with agentId:', agentId);
+  } else {
+    console.log('\\n⚠️  Could not extract agentId - check transaction logs manually');
+  }
 }
 
 main().catch(console.error);
 `;
 }
-export function generateAgentTs() {
+export function generateAgentTs(answers) {
+    const streamingCode = answers.a2aStreaming
+        ? `
+/**
+ * Stream a response to a user message (generator function)
+ * Yields chunks of text as they are generated by the LLM
+ * 
+ * @param userMessage - The user's input
+ * @param history - Previous conversation messages (for context)
+ * @yields Text chunks as they are generated
+ */
+export async function* streamResponse(userMessage: string, history: AgentMessage[] = []): AsyncGenerator<string> {
+  const systemPrompt: AgentMessage = {
+    role: 'system',
+    content: 'You are a helpful AI assistant registered on the ERC-8004 protocol. Be concise and helpful.',
+  };
+
+  const messages: AgentMessage[] = [
+    systemPrompt,
+    ...history,
+    { role: 'user', content: userMessage },
+  ];
+
+  const stream = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    stream: true,
+  });
+
+  for await (const chunk of stream) {
+    const content = chunk.choices[0]?.delta?.content;
+    if (content) {
+      yield content;
+    }
+  }
+}
+`
+        : "";
     return `/**
  * LLM Agent
  * 
@@ -351,5 +421,5 @@ export async function generateResponse(userMessage: string, history: AgentMessag
 
   return chat(messages);
 }
-`;
+${streamingCode}`;
 }

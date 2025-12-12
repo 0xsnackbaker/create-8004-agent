@@ -3,6 +3,9 @@ import { hasFeature } from "../wizard.js";
 
 export function generateA2AServer(answers: WizardAnswers): string {
     const x402Import = hasFeature(answers, "x402") ? `import { paymentMiddleware } from 'x402-express';` : "";
+    const streamingImport = answers.a2aStreaming
+        ? `import { streamResponse, type AgentMessage } from './agent.js';`
+        : `import { generateResponse, type AgentMessage } from './agent.js';`;
 
     const x402Setup = hasFeature(answers, "x402")
         ? `
@@ -45,7 +48,7 @@ app.use(paymentMiddleware(
 import 'dotenv/config';
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { generateResponse, type AgentMessage } from './agent.js';
+${streamingImport}
 ${x402Import}
 
 const app = express();
@@ -87,7 +90,35 @@ app.get('/.well-known/agent-card.json', async (req, res) => {
   res.json(agentCard.default);
 });
 
-/**
+${
+    answers.a2aStreaming
+        ? `/**
+ * Main JSON-RPC 2.0 endpoint
+ * All A2A protocol methods are called through this single endpoint
+ */
+app.post('/a2a', async (req, res) => {
+  const { jsonrpc, method, params, id } = req.body;
+
+  // Validate JSON-RPC version
+  if (jsonrpc !== '2.0') {
+    return res.json({ jsonrpc: '2.0', error: { code: -32600, message: 'Invalid Request' }, id });
+  }
+
+  try {
+    const result = await handleMethod(method, params, res);
+    // If result is null, response was already sent (streaming)
+    if (result !== null) {
+      res.json({ jsonrpc: '2.0', result, id });
+    }
+  } catch (error: any) {
+    res.json({
+      jsonrpc: '2.0',
+      error: { code: -32603, message: error.message || 'Internal error' },
+      id,
+    });
+  }
+});`
+        : `/**
  * Main JSON-RPC 2.0 endpoint
  * All A2A protocol methods are called through this single endpoint
  */
@@ -109,13 +140,32 @@ app.post('/a2a', async (req, res) => {
       id,
     });
   }
-});
+});`
+}
 
 // ============================================================================
 // Method Handlers
 // ============================================================================
 
-/**
+${
+    answers.a2aStreaming
+        ? `/**
+ * Route JSON-RPC methods to their handlers
+ * Add new methods here as needed
+ */
+async function handleMethod(method: string, params: any, res?: express.Response) {
+  switch (method) {
+    case 'message/send':
+      return handleMessageSend(params, res);
+    case 'tasks/get':
+      return handleTasksGet(params);
+    case 'tasks/cancel':
+      return handleTasksCancel(params);
+    default:
+      throw new Error(\`Method not found: \${method}\`);
+  }
+}`
+        : `/**
  * Route JSON-RPC methods to their handlers
  * Add new methods here as needed
  */
@@ -130,9 +180,133 @@ async function handleMethod(method: string, params: any) {
     default:
       throw new Error(\`Method not found: \${method}\`);
   }
+}`
 }
 
-/**
+${
+    answers.a2aStreaming
+        ? `/**
+ * Handle message/send with streaming support
+ * 
+ * @param params.message - The user's message with role and parts
+ * @param params.configuration.contextId - Optional ID to continue a conversation
+ * @param res - Express response object for SSE streaming
+ * @returns A task object (or streams response via SSE)
+ */
+async function handleMessageSend(
+  params: {
+    message: { role: string; parts: Array<{ type: string; text?: string }> };
+    configuration?: { contextId?: string; streaming?: boolean };
+  },
+  res?: express.Response
+) {
+  const { message, configuration } = params;
+  const streaming = configuration?.streaming ?? false;
+  
+  // Use existing contextId for conversation continuity, or create new one
+  const contextId = configuration?.contextId || uuidv4();
+  const taskId = uuidv4();
+
+  // Extract text content from message parts
+  const userText = message.parts
+    .filter((p) => p.type === 'text' && p.text)
+    .map((p) => p.text)
+    .join('\\n');
+
+  // Get conversation history for context-aware responses
+  const history = conversationHistory.get(contextId) || [];
+
+  if (streaming && res) {
+    // Set up SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    // Create initial task in 'working' state
+    const task = {
+      id: taskId,
+      contextId,
+      status: 'working' as const,
+      messages: [
+        { role: 'user' as const, parts: [{ type: 'text' as const, text: userText }] },
+      ],
+      artifacts: [],
+    };
+    tasks.set(taskId, task);
+
+    // Send initial task state
+    res.write(\`data: \${JSON.stringify({ jsonrpc: '2.0', result: task })}\\n\\n\`);
+
+    // Stream the response
+    let fullResponse = '';
+    for await (const chunk of streamResponse(userText, history)) {
+      fullResponse += chunk;
+      
+      // Send each chunk as an SSE event
+      const partialTask = {
+        ...task,
+        status: 'working' as const,
+        messages: [
+          { role: 'user' as const, parts: [{ type: 'text' as const, text: userText }] },
+          { role: 'agent' as const, parts: [{ type: 'text' as const, text: fullResponse }] },
+        ],
+      };
+      res.write(\`data: \${JSON.stringify({ jsonrpc: '2.0', result: partialTask })}\\n\\n\`);
+    }
+
+    // Update conversation history
+    history.push({ role: 'user', content: userText });
+    history.push({ role: 'assistant', content: fullResponse });
+    conversationHistory.set(contextId, history);
+
+    // Send final completed task
+    const completedTask = {
+      id: taskId,
+      contextId,
+      status: 'completed' as const,
+      messages: [
+        { role: 'user' as const, parts: [{ type: 'text' as const, text: userText }] },
+        { role: 'agent' as const, parts: [{ type: 'text' as const, text: fullResponse }] },
+      ],
+      artifacts: [],
+    };
+    tasks.set(taskId, completedTask);
+    
+    res.write(\`data: \${JSON.stringify({ jsonrpc: '2.0', result: completedTask })}\\n\\n\`);
+    res.write('data: [DONE]\\n\\n');
+    res.end();
+    
+    return null; // Response already sent via SSE
+  }
+
+  // Non-streaming: generate complete response
+  let responseText = '';
+  for await (const chunk of streamResponse(userText, history)) {
+    responseText += chunk;
+  }
+
+  // Update conversation history for future messages
+  history.push({ role: 'user', content: userText });
+  history.push({ role: 'assistant', content: responseText });
+  conversationHistory.set(contextId, history);
+
+  // Create the task response object
+  const task = {
+    id: taskId,
+    contextId,
+    status: 'completed' as const,
+    messages: [
+      { role: 'user' as const, parts: [{ type: 'text' as const, text: userText }] },
+      { role: 'agent' as const, parts: [{ type: 'text' as const, text: responseText }] },
+    ],
+    artifacts: [],
+  };
+
+  tasks.set(taskId, task);
+  return task;
+}`
+        : `/**
  * Handle message/send - the main method for chatting with the agent
  * 
  * @param params.message - The user's message with role and parts
@@ -183,6 +357,7 @@ async function handleMessageSend(params: {
   tasks.set(taskId, task);
 
   return task;
+}`
 }
 
 /**
@@ -240,7 +415,7 @@ export function generateAgentCard(answers: WizardAnswers): string {
         url: "http://localhost:3000",
         version: "1.0.0",
         capabilities: {
-            streaming: false,
+            streaming: answers.a2aStreaming,
             pushNotifications: false,
             stateTransitionHistory: false,
         },

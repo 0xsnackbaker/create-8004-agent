@@ -1,11 +1,12 @@
-import { type ChainKey, type TrustModel } from './config.js';
+import { type ChainKey, type TrustModel } from "./config.js";
 export interface WizardAnswers {
     projectDir: string;
     agentName: string;
     agentDescription: string;
     agentImage: string;
-    features: ('a2a' | 'mcp' | 'x402')[];
-    storageType: 'ipfs' | 'base64';
+    features: ("a2a" | "mcp" | "x402")[];
+    a2aStreaming: boolean;
+    storageType: "ipfs" | "base64";
     chain: ChainKey;
     trustModels: TrustModel[];
     agentWallet: string;

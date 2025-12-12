@@ -1,10 +1,10 @@
-import inquirer from 'inquirer';
-import fs from 'fs';
-import path from 'path';
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { CHAINS, TRUST_MODELS } from './config.js';
+import inquirer from "inquirer";
+import fs from "fs";
+import path from "path";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { CHAINS, TRUST_MODELS } from "./config.js";
 function getAvailableDir(baseDir) {
-    if (baseDir === '.')
+    if (baseDir === ".")
         return baseDir;
     const fullPath = path.resolve(process.cwd(), baseDir);
     if (!fs.existsSync(fullPath))
@@ -21,70 +21,80 @@ function getAvailableDir(baseDir) {
 // Helper getters for cleaner access
 export const hasFeature = (answers, feature) => answers.features.includes(feature);
 export async function runWizard() {
-    console.log('\n');
+    console.log("\n");
     const answers = await inquirer.prompt([
         {
-            type: 'input',
-            name: 'projectDir',
-            message: 'Project directory (or . for current):',
-            default: 'my-agent',
+            type: "input",
+            name: "projectDir",
+            message: "Project directory (or . for current):",
+            default: "my-agent",
         },
         {
-            type: 'input',
-            name: 'agentName',
-            message: 'Agent name:',
-            validate: (input) => input.length > 0 || 'Agent name is required',
+            type: "input",
+            name: "agentName",
+            message: "Agent name:",
+            validate: (input) => input.length > 0 || "Agent name is required",
         },
         {
-            type: 'input',
-            name: 'agentDescription',
-            message: 'Agent description:',
-            validate: (input) => input.length > 0 || 'Description is required',
+            type: "input",
+            name: "agentDescription",
+            message: "Agent description:",
+            validate: (input) => input.length > 0 || "Description is required",
         },
         {
-            type: 'input',
-            name: 'agentImage',
-            message: 'Agent image URL:',
-            default: 'https://example.com/agent.png',
+            type: "input",
+            name: "agentImage",
+            message: "Agent image URL:",
+            default: "https://example.com/agent.png",
         },
         {
-            type: 'input',
-            name: 'agentWallet',
-            message: 'Agent wallet address (leave empty to generate new):',
-            validate: (input) => input === '' || /^0x[a-fA-F0-9]{40}$/.test(input) || 'Enter a valid Ethereum address or leave empty',
+            type: "input",
+            name: "agentWallet",
+            message: "Agent wallet address (leave empty to generate new):",
+            validate: (input) => input === "" || /^0x[a-fA-F0-9]{40}$/.test(input) || "Enter a valid Ethereum address or leave empty",
         },
         {
-            type: 'checkbox',
-            name: 'features',
-            message: 'Select features to include:',
+            type: "checkbox",
+            name: "features",
+            message: "Select features to include:",
             choices: [
-                { name: 'A2A Server (agent-to-agent communication)', value: 'a2a', checked: true },
-                { name: 'x402 Payments (Coinbase, USDC)', value: 'x402', checked: true },
-                { name: 'MCP Server (Model Context Protocol tools)', value: 'mcp', checked: false },
+                { name: "A2A Server (agent-to-agent communication)", value: "a2a", checked: true },
+                { name: "x402 Payments (Coinbase, USDC)", value: "x402", checked: true },
+                { name: "MCP Server (Model Context Protocol tools)", value: "mcp", checked: false },
             ],
         },
         {
-            type: 'list',
-            name: 'storageType',
-            message: 'Registration metadata storage:',
+            type: "confirm",
+            name: "a2aStreaming",
+            message: "Enable A2A streaming responses? (SSE):",
+            default: false,
+            when: (ans) => ans.features?.includes("a2a") ?? false,
+        },
+        {
+            type: "list",
+            name: "storageType",
+            message: "Registration metadata storage:",
             choices: [
-                { name: 'IPFS (Pinata) - Recommended', value: 'ipfs' },
-                { name: 'Base64 (on-chain, higher gas)', value: 'base64' },
+                { name: "Base64 (on-chain, no external dependencies)", value: "base64" },
+                { name: "IPFS (Pinata)", value: "ipfs" },
             ],
         },
         {
-            type: 'list',
-            name: 'chain',
-            message: 'Blockchain network:',
-            choices: Object.entries(CHAINS).map(([key, chain]) => ({
-                name: chain.name,
-                value: key,
-            })),
+            type: "list",
+            name: "chain",
+            message: "Blockchain network:",
+            choices: [
+                ...Object.entries(CHAINS).map(([key, chain]) => ({
+                    name: chain.name,
+                    value: key,
+                })),
+                { name: "Solana (coming soon)", value: "solana", disabled: true },
+            ],
         },
         {
-            type: 'checkbox',
-            name: 'trustModels',
-            message: 'Supported trust models:',
+            type: "checkbox",
+            name: "trustModels",
+            message: "Supported trust models:",
             choices: TRUST_MODELS.map((model) => ({ name: model, value: model, checked: true })),
         },
     ]);
@@ -103,12 +113,14 @@ export async function runWizard() {
         generatedPrivateKey = privateKey;
         const account = privateKeyToAccount(privateKey);
         agentWallet = account.address;
-        console.log('\n🔑 Generated new wallet:', agentWallet);
+        console.log("\n🔑 Generated new wallet:", agentWallet);
     }
     return {
         ...answers,
         projectDir,
         agentWallet,
         generatedPrivateKey,
+        // Default to false if A2A not selected (question was skipped)
+        a2aStreaming: answers.a2aStreaming ?? false,
     };
 }
