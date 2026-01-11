@@ -1,0 +1,37 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "testnew",
+  "description": "testnew",
+  "image": "https://example.com/agent.png",
+  "endpoints": [
+    {
+      "name": "A2A",
+      "endpoint": "https://testnew.example.com/.well-known/agent-card.json",
+      "version": "0.3.0"
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://testnew.example.com/mcp",
+      "version": "2025-06-18"
+    },
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:84532:0xA90f37BcAdFc7C3515629dBAEDdC769CF6FDAE93"
+    }
+  ],
+  "registrations": [
+    {
+      "agentId": 2221,
+      "agentRegistry": "eip155:84532:0x8004AA63c570c570eBF15376c0dB199918BFe9Fb"
+    }
+  ],
+  "supportedTrust": [
+    "reputation",
+    "crypto-economic",
+    "tee-attestation"
+  ],
+  "active": true,
+  "skills": [],
+  "domains": [],
+  "x402support": true
+}
